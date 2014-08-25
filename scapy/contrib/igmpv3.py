@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# -*- coding: UTF-8 -*-
 
 # http://trac.secdev.org/scapy/ticket/31
 
@@ -26,8 +27,14 @@ from scapy.packet import *
 
 #import sys, socket, struct, time
 from scapy.all import *
-print "IGMPv3  is still under development - Nov 2010"
 
+#--------------------------------------------------------------------------
+def isValidMCAddr(ip):
+  """convert dotted quad string to long and check the first octet"""
+  FirstOct=atol(ip)>>24 & 0xFF
+  return (FirstOct >= 224) and (FirstOct <= 239)
+
+#--------------------------------------------------------------------------
 
 class IGMPv3gr(Packet):
   """IGMP Group Record for IGMPv3 Membership Report
@@ -46,10 +53,12 @@ class IGMPv3gr(Packet):
                     6 : "Block Old Sources"}
 
   fields_desc = [ ByteEnumField("rtype", 1, igmpv3grtypes),
-                      ByteField("auxdlen",0),
+                  #auxdlen = length of Auxiliary data in 32-bit words
+                  ByteField("auxdlen",0),
                   FieldLenField("numsrc", None, "srcaddrs"),
-                        IPField("maddr", "0.0.0.0"),
-                 FieldListField("srcaddrs", None, IPField("sa", "0.0.0.0"), "numsrc") ]
+                  IPField("maddr", "0.0.0.0"),
+                  ConditionalField(IntField("auxdfield",None),lambda pkt:pkt.auxdlen > 0)
+                ]
   #show_indent=0
 #--------------------------------------------------------------------------
   def post_build(self, p, pay):
@@ -66,7 +75,7 @@ class IGMPv3gr(Packet):
     return self.sprintf("IGMPv3 Group Record %IGMPv3gr.type% %IGMPv3gr.maddr%")
 
 
-class IGMPv3(Packet):
+class IGMPv3(Packet):   
   """IGMP Message Class for v3.
 
   This class is derived from class Packet. 
@@ -94,30 +103,19 @@ class IGMPv3(Packet):
                   0x32 : "Multicast Router Termination"}
 
   fields_desc = [ ByteEnumField("type", 0x11, igmpv3types),
-                      ByteField("mrcode",0),
-                    XShortField("chksum", None),
-                    IPField("gaddr", "0.0.0.0")
+                         ConditionalField(ByteField("mrtime",0x18), lambda pkt:pkt.type==0x11),
+                         ConditionalField(ByteField("rsrvd",0), lambda pkt:pkt.type==0x22),
+                         XShortField("chksum", None),
+                         ConditionalField(ShortField("rsrvd", 0), lambda pkt:pkt.type==0x22),
+                         ConditionalField(IPField("gaddr", "0.0.0.0"), lambda pkt:pkt.type==0x11),
+                         ConditionalField(BitField("resv", 0, 4), lambda pkt:pkt.type==0x11),
+                         ConditionalField(BitField("s", 0, 1), lambda pkt:pkt.type==0x11),
+                         ConditionalField(BitField("qrv", 2, 3), lambda pkt:pkt.type==0x11), 
+                         ConditionalField(ByteField("qqic",125), lambda pkt:pkt.type==0x11),
+                         ConditionalField(FieldLenField("numsrc", None, "srcaddrs"), lambda pkt:pkt.type==0x11),
+                         ConditionalField(FieldListField("srcaddrs", None, IPField("sa", "0.0.0.0"), "numsrc"), lambda pkt:pkt.type==0x11),
+                         ConditionalField(ShortField("numgrp", 0), lambda pkt:pkt.type==0x22)
                     ]
-                                          # use float_encode()
-
-    # if type = 0x11 (Membership Query), the next field is group address 
-    #   ConditionalField(IPField("gaddr", "0.0.0.0"), "type", lambda x:x==0x11),
-    # else if type = 0x22 (Membership Report), the next fields are 
-    #         reserved and number of group records
-    #ConditionalField(ShortField("rsvd2", 0), "type", lambda x:x==0x22),
-    #ConditionalField(ShortField("numgrp", 0), "type", lambda x:x==0x22),
-#                  FieldLenField("numgrp", None, "grprecs")]
-    # else if type = 0x30 (Multicast Router Advertisement), the next fields are 
-    #         query interval and robustness
-    #ConditionalField(ShortField("qryIntvl", 0), "type", lambda x:x==0x30),
-    #ConditionalField(ShortField("robust", 0), "type", lambda x:x==0x30),
-#  The following are only present for membership queries
-       #   ConditionalField(BitField("resv", 0, 4), "type", lambda x:x==0x11),
-       #   ConditionalField(BitField("s", 0, 1), "type", lambda x:x==0x11),
-       #   ConditionalField(BitField("qrv", 0, 3), "type", lambda x:x==0x11), 
-       #  ConditionalField(ByteField("qqic",0), "type", lambda x:x==0x11),
-    # ConditionalField(FieldLenField("numsrc", None, "srcaddrs"), "type", lambda x:x==0x11),
-    # ConditionalField(FieldListField("srcaddrs", None, IPField("sa", "0.0.0.0"), "numsrc"), "type", lambda x:x==0x11),
 
 #--------------------------------------------------------------------------
   def float_encode(self, value):
@@ -162,9 +160,11 @@ class IGMPv3(Packet):
     """Display a summary of the IGMPv3 object."""
 
     if isinstance(self.underlayer, IP):
-      return self.underlayer.sprintf("IGMPv3: %IP.src% > %IP.dst% %IGMPv3.type% %IGMPv3.gaddr%")
+      return self.underlayer.sprintf("IGMPv3: %IP.src% > %IP.dst% %IGMPv3.type%")
+#      return self.underlayer.sprintf("IGMPv3: %IP.src% > %IP.dst% %IGMPv3.type% %IGMPv3.gaddr%")
     else:
-      return self.sprintf("IGMPv3 %IGMPv3.type% %IGMPv3.gaddr%")
+      return self.sprintf("IGMPv3 %IGMPv3.type%")
+#      return self.sprintf("IGMPv3 %IGMPv3.type% %IGMPv3.gaddr%")
 
 #--------------------------------------------------------------------------
   def igmpize(self, ip=None, ether=None):
@@ -263,8 +263,7 @@ class IGMPv3(Packet):
        ip.options=[IPOption_Router_Alert()]      # IP rule 5
     return retCode
 
-
-bind_layers( IP,        IGMPv3,      frag=0, proto=2, ttl=1, tos=0xc0)
-bind_layers( IGMPv3,    IGMPv3gr,    frag=0, proto=2)
-bind_layers( IGMPv3gr,  IGMPv3gr,    frag=0, proto=2)
+bind_layers( IP,        IGMPv3,      frag=0, proto=2, len=40)
+bind_layers( IGMPv3,    IGMPv3gr,    type=0x22)
+bind_layers( IGMPv3gr,  IGMPv3gr)
 
