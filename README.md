@@ -24,3 +24,7 @@ igmpv3              : IGMPv3                                   status=loads
 igmp                : IGMP/IGMPv2                              status=loads
 
 
+
+Before committing changes to this project do the following (cleans up the branch):
+
+$sudo python setup.py clean --all
