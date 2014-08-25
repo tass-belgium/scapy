@@ -46,9 +46,10 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
                 0x17 : "Leave Group"}
 
   fields_desc = [ ByteEnumField("type", 0x11, igmptypes),
-                      ByteField("mrtime",20),
-                    XShortField("chksum", None),
-                        IPField("gaddr", "0.0.0.0")]
+                  ByteField("mrtime",18),
+                  XShortField("chksum", None),
+                  IPField("gaddr", "0.0.0.0")
+                ]
 
 #--------------------------------------------------------------------------
   def post_build(self, p, pay):
@@ -68,7 +69,6 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
 #--------------------------------------------------------------------------
   def mysummary(self):
     """Display a summary of the IGMP object."""
-
     if isinstance(self.underlayer, IP):
       return self.underlayer.sprintf("IGMP: %IP.src% > %IP.dst% %IGMP.type% %IGMP.gaddr%")
     else:
@@ -94,7 +94,6 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
     adjusted to ensure correct formatting and assignment. The Ethernet header
     is then adjusted to the proper IGMP packet format.
     """
-
 # The rules are:
 #   1.  the Max Response time is meaningful only in Membership Queries and should be zero 
 #       otherwise (RFC 2236, section 2.2)
@@ -156,6 +155,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
           retCode = True
       else:
         print "Warning: Using invalid IGMP Type"
+        print "Type used is %s"%self.type
         retCode = False
     else:
       print "Warning: No IGMP Group Address set"

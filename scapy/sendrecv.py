@@ -207,7 +207,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
     return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")
 
 
-def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, *args, **kargs):
+def gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, *args, **kargs):
     if type(x) is str:
         x = conf.raw_layer(load=x)
     if not isinstance(x, Gen):
@@ -240,7 +240,6 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, *
                 loop += 1
     except KeyboardInterrupt:
         pass
-    s.close()
     if verbose:
         print "\nSent %i packets." % n
         
@@ -248,7 +247,9 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, *
 def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None, *args, **kargs):
     """Send packets at layer 3
 send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
-    __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, count=count,verbose=verbose, realtime=realtime)
+    s = conf.L3socket(*args, **kargs)
+    gen_send(s, x, inter=inter, loop=loop, count=count,verbose=verbose, realtime=realtime)
+    s.close()
 
 @conf.commands.register
 def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, realtime=None, *args, **kargs):
@@ -256,7 +257,9 @@ def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=N
 sendp(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose, realtime=realtime)
+    s = conf.L2socket(iface=iface, *args, **kargs)
+    gen_send(s, x, inter=inter, loop=loop, count=count, verbose=verbose, realtime=realtime)
+    s.close()
 
 @conf.commands.register
 def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, iface=None):
