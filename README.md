@@ -8,7 +8,7 @@ New features we plan to add:
 * Support for IGMPv1, IGMPv2, IGMPv3
 * Support to work with a single socket during a scapy session
 
-INSTALL
+Installing
 =======
 
 To install scapy you need to do the following:
@@ -34,8 +34,17 @@ igmpv3              : IGMPv3                                   status=loads
 igmp                : IGMP/IGMPv2                              status=loads
 
 
-COMITTING
+Comitting
 =========
+
 Before committing changes to this project do the following (cleans up the branch):
 
 $sudo python setup.py clean --all
+
+
+Making changes in the contrib folder /  Updating Scapy
+======================================================
+
+When you are editing or creating a new protocol in the scapy/contrib folder, you need to install these changes in the folder that scapy is actually using to be able to use them in scapy. The same has to be done when a new change in git was pushed and you want to use this. Installing this can be done in the following way:
+
+$ sudo python setup.py install --force
