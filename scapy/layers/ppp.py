@@ -191,12 +191,14 @@ _PPP_proto = { 0x0001: "Padding Protocol",
 
 
 class HDLC(Packet):
-    fields_desc = [ XByteField("address",0xff),
+    fields_desc = [ XByteField("useless",0x01),
+                    XByteField("address",0xff),
                     XByteField("control",0x03)  ]
 
 class PPP(Packet):
     name = "PPP Link Layer"
-    fields_desc = [ ShortEnumField("proto", 0x0021, _PPP_proto) ]
+    #fields_desc = [ ShortEnumField("proto", 0x0021, _PPP_proto) ]
+    fields_desc = [ ShortEnumField("proto", 0xc021, _PPP_proto) ]
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and _pkt[0] == '\xff':
@@ -218,6 +220,76 @@ _PPP_conftypes = { 1:"Configure-Request",
                    15:"Reset-Ack",
                    }
 
+### PPP LCP stuff (RFC 1661)
+_PPP_lcpopttypes = { 1:"Maximum-Receive-Unit",
+                     3:"Authentication-Protocol",
+                     4:"Quality-Protocol",
+                     5:"Magic-Number",
+                     7:"Protocol-Field-Compression (Deprecated)",
+                     8:"Address-And-Control-Field-Compression"}
+
+class PPP_LCP_Option(Packet):
+    name = "PPP LCP Option"
+    fields_desc = [ ByteEnumField("type" , None , _PPP_lcpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
+                    StrLenField("data", "", length_from=lambda p:max(0,p.len-2)) ]
+
+    def extract_padding(self, pay):
+        return "",pay
+
+    registered_options = {}
+    @classmethod
+    def register_variant(cls):
+        cls.registered_options[cls.type.default] = cls
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            o = ord(_pkt[0])
+            return cls.registered_options.get(o, cls)
+        return cls
+
+class PPP_LCP_Option_MRU(PPP_LCP_Option):
+    name = "PPP LCP Option: Maximum-Receive-Unit"
+    fields_desc = [ ByteEnumField("type" , 1 , _PPP_lcpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
+                    IPField("data","0.0.0.0"),
+                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+
+class PPP_LCP_Option_AuthProto(PPP_LCP_Option):
+    name = "PPP LCP Option: Authentication-Protocol"
+    fields_desc = [ ByteEnumField("type" , 3 , _PPP_lcpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
+                    IPField("data","0.0.0.0"),
+                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+
+class PPP_LCP_Option_Quality(PPP_LCP_Option):
+    name = "PPP LCP Option: Quality-Protocol"
+    fields_desc = [ ByteEnumField("type" , 4 , _PPP_lcpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
+                    IPField("data","0.0.0.0"),
+                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+
+class PPP_LCP_Option_MagicNr(PPP_LCP_Option):
+    name = "PPP LCP Option: Magic-Number"
+    fields_desc = [ ByteEnumField("type" , 5 , _PPP_lcpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
+                    IPField("data","0.0.0.0"),
+                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+
+
+class PPP_LCP_Option_ProtoField(PPP_LCP_Option):
+    name = "PPP LCP Option: Protocol-Field-Compression (deprecated)"
+    fields_desc = [ ByteEnumField("type" , 7 , _PPP_lcpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
+                    IPField("data","0.0.0.0"),
+                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+
+class PPP_LCP_Option_AddressCtrl(PPP_LCP_Option):
+    name = "PPP LCP Option: Address-and-Control-Field-Compression"
+    fields_desc = [ ByteEnumField("type" , 8 , _PPP_lcpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
+                    IPField("data","0.0.0.0"),
+                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
 ### PPP IPCP stuff (RFC 1332)
 
@@ -230,7 +302,6 @@ _PPP_ipcpopttypes = {     1:"IP-Addresses (Deprecated)",
                           130:"Primary-NBNS-Address",
                           131:"Secondary-DNS-Address",
                           132:"Secondary-NBNS-Address"}
-
 
 class PPP_IPCP_Option(Packet):
     name = "PPP IPCP Option"
@@ -341,7 +412,11 @@ bind_layers( CookedLinux,   PPPoE,         proto=0x8864)
 bind_layers( PPPoE,         PPP,           code=0)
 bind_layers( HDLC,          PPP,           )
 bind_layers( PPP,           IP,            proto=33)
+bind_layers( PPP,           PPP_LCP,       proto=0xc021)
 bind_layers( PPP,           PPP_IPCP,      proto=0x8021)
 bind_layers( PPP,           PPP_ECP,       proto=0x8053)
 bind_layers( Ether,         PPP_IPCP,      type=0x8021)
 bind_layers( Ether,         PPP_ECP,       type=0x8053)
+
+
+conf.l2types.register(204, HDLC)

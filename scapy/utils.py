@@ -500,6 +500,7 @@ class RawPcapReader:
         vermaj,vermin,tz,sig,snaplen,linktype = struct.unpack(self.endian+"HHIIII",hdr)
 
         self.linktype = linktype
+        print "LinkType is: %s.\n"%linktype
 
 
 
@@ -566,6 +567,8 @@ class PcapReader(RawPcapReader):
     def __init__(self, filename):
         RawPcapReader.__init__(self, filename)
         try:
+            print "Tring to check l2types, which can be: %s.\n"%conf.l2types
+            print "Self.LLcls is %s.\n"%conf.l2types[self.linktype]
             self.LLcls = conf.l2types[self.linktype]
         except KeyError:
             warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype,self.linktype))
