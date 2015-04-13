@@ -38,7 +38,6 @@ class PPPoED(PPPoE):
                     XShortField("sessionid", 0x0),
                     ShortField("len", None) ]
 
-
 _PPP_proto = { 0x0001: "Padding Protocol",
                0x0003: "ROHC small-CID [RFC3095]",
                0x0005: "ROHC large-CID [RFC3095]",
@@ -220,13 +219,16 @@ _PPP_conftypes = { 1:"Configure-Request",
                    15:"Reset-Ack",
                    }
 
-### PPP LCP stuff (RFC 1661)
+#### PPP LCP stuff (RFC 1661)
 _PPP_lcpopttypes = { 1:"Maximum-Receive-Unit",
                      3:"Authentication-Protocol",
                      4:"Quality-Protocol",
                      5:"Magic-Number",
                      7:"Protocol-Field-Compression (Deprecated)",
                      8:"Address-And-Control-Field-Compression"}
+
+_PPP_authproto_types = { 0xc023 : "Password Authentication Protocol",
+                         0xc223 : "Challenge Handshake Authentication Protocol" }
 
 class PPP_LCP_Option(Packet):
     name = "PPP LCP Option"
@@ -249,47 +251,53 @@ class PPP_LCP_Option(Packet):
         return cls
 
 class PPP_LCP_Option_MRU(PPP_LCP_Option):
+    '''Inform peer that implementation can receive larger/smaller packets.'''
     name = "PPP LCP Option: Maximum-Receive-Unit"
     fields_desc = [ ByteEnumField("type" , 1 , _PPP_lcpopttypes),
-                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    IPField("data","0.0.0.0"),
+                    #FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
+                    ByteField("len", 4),
+                    ShortField("data","1500"),
                     ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
 class PPP_LCP_Option_AuthProto(PPP_LCP_Option):
+    '''Negotiate use of specific protocol for authentication.'''
     name = "PPP LCP Option: Authentication-Protocol"
     fields_desc = [ ByteEnumField("type" , 3 , _PPP_lcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    IPField("data","0.0.0.0"),
-                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    XShortEnumField("auth-proto", 0xc023, _PPP_authproto_types),
+                    StrLenField("data", "")]
 
 class PPP_LCP_Option_Quality(PPP_LCP_Option):
+    '''Negotiate use of specific protocol for link quality monitoring.'''
     name = "PPP LCP Option: Quality-Protocol"
     fields_desc = [ ByteEnumField("type" , 4 , _PPP_lcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    IPField("data","0.0.0.0"),
-                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    XShortEnumField("qa-proto", 0xc025, {0xc025 : "Link Quality Report"}),
+                    StrLenField("data", "")]
 
 class PPP_LCP_Option_MagicNr(PPP_LCP_Option):
+    '''Provides method for detecting looped-back links and other DLL anomalies.'''
     name = "PPP LCP Option: Magic-Number"
     fields_desc = [ ByteEnumField("type" , 5 , _PPP_lcpopttypes),
-                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    IPField("data","0.0.0.0"),
-                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
-
+                    #FieldLenField("len", None, length_of="magic-nr", fmt="B", adjust=lambda p,x:x+2),
+                    ByteField("len", 6),
+                    XIntField("magic-nr", "")]
 
 class PPP_LCP_Option_ProtoField(PPP_LCP_Option):
     name = "PPP LCP Option: Protocol-Field-Compression (deprecated)"
     fields_desc = [ ByteEnumField("type" , 7 , _PPP_lcpopttypes),
-                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    IPField("data","0.0.0.0"),
-                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    ByteField("len", 2)]
 
 class PPP_LCP_Option_AddressCtrl(PPP_LCP_Option):
     name = "PPP LCP Option: Address-and-Control-Field-Compression"
     fields_desc = [ ByteEnumField("type" , 8 , _PPP_lcpopttypes),
-                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    IPField("data","0.0.0.0"),
-                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    ByteField("len", 2)]
+
+class PPP_LCP(Packet):
+    fields_desc = [ ByteEnumField("code" , 1, _PPP_conftypes),
+		    XByteField("id", 0 ),
+                    FieldLenField("len" , None, fmt="H", length_of="options", adjust=lambda p,x:x+4 ),
+                    PacketListField("options", [],  PPP_LCP_Option, length_from=lambda p:p.len-4,) ]
 
 ### PPP IPCP stuff (RFC 1332)
 
