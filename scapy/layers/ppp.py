@@ -105,26 +105,7 @@ _PPP_proto = { 0x0001: "Padding Protocol",
                0x0285: "IEEE p1284.4 standard - data packets [Batchelder]",
                0x0287: "ETSI TETRA Network Protocol Type 1 [Nieminen]",
                0x0289: "Multichannel Flow Treatment Protocol [McCann]",
-               0x2063: "RTP IPHC Compressed TCP No Delta [RFC3544]",
-               0x2065: "RTP IPHC Context State [RFC3544]",
-               0x2067: "RTP IPHC Compressed UDP 16 [RFC3544]",
-               0x2069: "RTP IPHC Compressed RTP 16 [RFC3544]",
-               0x4001: "Cray Communications Control Protocol [Stage]",
-               0x4003: "CDPD Mobile Network Registration Protocol [Quick]",
-               0x4005: "Expand accelerator protocol [Rachmani]",
-               0x4007: "ODSICP NCP [Arvind]",
-               0x4009: "DOCSIS DLL [Gaedtke]",
-               0x400B: "Cetacean Network Detection Protocol [Siller]",
-               0x4021: "Stacker LZS [Simpson]",
-               0x4023: "RefTek Protocol [Banfill]",
-               0x4025: "Fibre Channel [Rajagopal]",
-               0x4027: "EMIT Protocols [Eastham]",
-               0x405b: "Vendor-Specific Protocol (VSP) [RFC3772]",
-               0x8021: "Internet Protocol Control Protocol",
-               0x8023: "OSI Network Layer Control Protocol",
-               0x8025: "Xerox NS IDP Control Protocol",
-               0x8027: "DECnet Phase IV Control Protocol",
-               0x8029: "Appletalk Control Protocol",
+               0x2063: "RTP IPHC Compressed TCP Ntalk Control Protocol",
                0x802b: "Novell IPX Control Protocol",
                0x802d: "reserved",
                0x802f: "reserved",
@@ -190,10 +171,12 @@ _PPP_proto = { 0x0001: "Padding Protocol",
 
 
 class HDLC(Packet):
-    fields_desc = [ XByteField("useless",0x01),
-                    XByteField("address",0xff),
-                    XByteField("control",0x03)  ]
+#    fields_desc = [ XByteField("useless",0x01),
+#                    XByteField("address",0xff),
+#                    XByteField("control",0x03)  ]
 
+    fields_desc = [ XByteField("address",0xff),
+                    XByteField("control",0x03)  ]
 class PPP(Packet):
     name = "PPP Link Layer"
     #fields_desc = [ ShortEnumField("proto", 0x0021, _PPP_proto) ]
@@ -203,6 +186,10 @@ class PPP(Packet):
         if _pkt and _pkt[0] == '\xff':
             cls = HDLC
         return cls
+
+### PPP IPCP stuff (RFC 1332)
+
+# # All IPCP options are defined below (names and associated classes)
 
 _PPP_conftypes = { 1:"Configure-Request",
                    2:"Configure-Ack",
@@ -254,34 +241,30 @@ class PPP_LCP_Option_MRU(PPP_LCP_Option):
     '''Inform peer that implementation can receive larger/smaller packets.'''
     name = "PPP LCP Option: Maximum-Receive-Unit"
     fields_desc = [ ByteEnumField("type" , 1 , _PPP_lcpopttypes),
-                    #FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
                     ByteField("len", 4),
-                    ShortField("data","1500"),
-                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    ShortField("data","1500")]
 
 class PPP_LCP_Option_AuthProto(PPP_LCP_Option):
     '''Negotiate use of specific protocol for authentication.'''
     name = "PPP LCP Option: Authentication-Protocol"
     fields_desc = [ ByteEnumField("type" , 3 , _PPP_lcpopttypes),
-                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    XShortEnumField("auth-proto", 0xc023, _PPP_authproto_types),
-                    StrLenField("data", "")]
+                    ByteField("len", 5),
+                    XShortEnumField("auth_proto", 0xc023, _PPP_authproto_types),
+                    ByteField("data", 5)]
 
 class PPP_LCP_Option_Quality(PPP_LCP_Option):
     '''Negotiate use of specific protocol for link quality monitoring.'''
     name = "PPP LCP Option: Quality-Protocol"
     fields_desc = [ ByteEnumField("type" , 4 , _PPP_lcpopttypes),
-                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    XShortEnumField("qa-proto", 0xc025, {0xc025 : "Link Quality Report"}),
-                    StrLenField("data", "")]
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+3),
+                    XShortEnumField("qa-proto", 0xc025, {0xc025 : "Link Quality Report"})]
 
 class PPP_LCP_Option_MagicNr(PPP_LCP_Option):
     '''Provides method for detecting looped-back links and other DLL anomalies.'''
     name = "PPP LCP Option: Magic-Number"
     fields_desc = [ ByteEnumField("type" , 5 , _PPP_lcpopttypes),
-                    #FieldLenField("len", None, length_of="magic-nr", fmt="B", adjust=lambda p,x:x+2),
                     ByteField("len", 6),
-                    XIntField("magic-nr", "")]
+                    XIntField("magic_nr", "")]
 
 class PPP_LCP_Option_ProtoField(PPP_LCP_Option):
     name = "PPP LCP Option: Protocol-Field-Compression (deprecated)"
@@ -315,7 +298,7 @@ class PPP_IPCP_Option(Packet):
     name = "PPP IPCP Option"
     fields_desc = [ ByteEnumField("type" , None , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    StrLenField("data", "", length_from=lambda p:max(0,p.len-2)) ]
+                    StrLenField("data", None, length_from=lambda p:max(0,p.len-2)) ]
     def extract_padding(self, pay):
         return "",pay
 
