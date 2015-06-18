@@ -171,10 +171,6 @@ _PPP_proto = { 0x0001: "Padding Protocol",
 
 
 class HDLC(Packet):
-#    fields_desc = [ XByteField("useless",0x01),
-#                    XByteField("address",0xff),
-#                    XByteField("control",0x03)  ]
-
     fields_desc = [ XByteField("address",0xff),
                     XByteField("control",0x03)  ]
 class PPP(Packet):
