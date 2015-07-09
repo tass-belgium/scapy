@@ -217,7 +217,7 @@ class Route6:
                 pathes.append((plen, (iface, cset, gw)))
                 
         if not pathes:
-            warning("No route found for IPv6 destination %s (no default route?)" % dst)
+            #warning("No route found for IPv6 destination %s (no default route?)" % dst)
             return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
 
         # Sort with longest prefix first
