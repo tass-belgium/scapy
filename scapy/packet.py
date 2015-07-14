@@ -361,6 +361,7 @@ class Packet(BasePacket):
         return p,lst
 
 
+
     def psdump(self, filename=None, **kargs):
         """psdump(filename=None, layer_shift=0, rebuild=1)
 Creates an EPS file describing a packet. If filename is not provided a temporary file is created and gs is called."""
@@ -1246,5 +1247,11 @@ def fuzz(p, _inplace=0):
         q = q.payload
     return p
 
+def append_packets(pkt_list):
+    '''Append packets to create subpacket, for e.g. subpackets in (M)DNSRR's'''
+    assert len(pkt_list) >= 2, "A list is composed out of more than 1 entry..."
+    subpkt = pkt_list[0]
+    for sub_layer in pkt_list[1:]:
+        subpkt = subpkt/sub_layer
 
-
+    return subpkt
