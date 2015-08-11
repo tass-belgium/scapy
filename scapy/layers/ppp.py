@@ -252,7 +252,7 @@ class PPP_LCP_Option_Quality(PPP_LCP_Option):
     '''Negotiate use of specific protocol for link quality monitoring.'''
     name = "PPP LCP Option: Quality-Protocol"
     fields_desc = [ ByteEnumField("type" , 4 , _PPP_lcpopttypes),
-                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+3),
+                    ByteField("len", 4),
                     XShortEnumField("data", 0xc025, {0xc025 : "Link Quality Report"})]
 
 class PPP_LCP_Option_MagicNr(PPP_LCP_Option):
