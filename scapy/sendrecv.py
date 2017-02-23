@@ -17,6 +17,7 @@ from utils import warning,get_temp_file,PcapReader
 import plist
 from error import log_runtime,log_interactive
 from base_classes import SetGen
+import sys
 
 #################
 ## Debug class ##
@@ -95,7 +96,8 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                         pass
                     except KeyboardInterrupt:
                         pass
-                    except:
+                    except Exception:
+                        print "An unexpected exception occurred. The Exception was: {}".format(sys.exc_info()[0])
                         log_runtime.exception("--- Error in child %i" % os.getpid())
                         log_runtime.info("--- Error in child %i" % os.getpid())
                 finally:
